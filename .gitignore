@@ -50,3 +50,6 @@ next-env.d.ts
 
 
 !.dev.vars.example
+
+#指导文档
+docx/
