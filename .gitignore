@@ -53,3 +53,4 @@ next-env.d.ts
 
 #指导文档
 docx/
+/src/generated/prisma
