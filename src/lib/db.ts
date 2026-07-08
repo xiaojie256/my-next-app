@@ -1,10 +1,11 @@
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "@/generated/prisma/client";
+import { PrismaPg } from '@prisma/adapter-pg';
+
+import { PrismaClient } from '@/generated/prisma/client';
 
 const connectionString = process.env.DATABASE_URL;
 
 if (!connectionString) {
-  throw new Error("DATABASE_URL 没有配置，请检查项目根目录的 .env 文件");
+  throw new Error('DATABASE_URL 未配置，请检查 .env 文件');
 }
 
 const adapter = new PrismaPg({
@@ -12,21 +13,17 @@ const adapter = new PrismaPg({
 });
 
 const globalForPrisma = globalThis as unknown as {
-  db?: PrismaClient;
+  prisma?: PrismaClient;
 };
 
 const db =
-  globalForPrisma.db ??
+  globalForPrisma.prisma ??
   new PrismaClient({
     adapter,
-    log:
-      process.env.NODE_ENV === "development"
-        ? ["query", "error", "warn"]
-        : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.db = db;
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = db;
 }
 
 export default db;

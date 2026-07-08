@@ -21,8 +21,6 @@ type AuthResponse = {
   };
 };
 
-const AUTH_USER_STORAGE_KEY = 'app-auth-user';
-
 function getMode(value: string | null): AuthMode {
   return value === 'register' ? 'register' : 'login';
 }
@@ -37,6 +35,8 @@ function LoginPageContent() {
   }, [searchParams]);
 
   const isRegister = mode === 'register';
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [loginForm, setLoginForm] = useState({
     email: '',
@@ -71,6 +71,10 @@ function LoginPageContent() {
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
 
+    if (isSubmitting) {
+      return;
+    }
+
     const email = loginForm.email.trim().toLowerCase();
     const password = loginForm.password;
 
@@ -79,33 +83,41 @@ function LoginPageContent() {
       return;
     }
 
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
-    });
+    setIsSubmitting(true);
 
-    const data = (await response.json()) as AuthResponse;
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        cache: 'no-store',
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
 
-    alert(data.message);
+      const data = (await response.json()) as AuthResponse;
 
-    if (response.ok && data.user) {
-      window.localStorage.setItem(
-        AUTH_USER_STORAGE_KEY,
-        JSON.stringify(data.user),
-      );
+      alert(data.message);
 
-      router.push('/home');
+      if (response.ok && data.user) {
+        window.location.assign('/home');
+        return;
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   const handleRegister = async (event: FormEvent) => {
     event.preventDefault();
+
+    if (isSubmitting) {
+      return;
+    }
 
     const name = registerForm.name.trim();
     const email = registerForm.email.trim().toLowerCase();
@@ -131,39 +143,46 @@ function LoginPageContent() {
       return;
     }
 
-    const response = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name,
-        email,
-        password,
-      }),
-    });
+    setIsSubmitting(true);
 
-    const data = (await response.json()) as AuthResponse;
-
-    alert(data.message);
-
-    if (response.ok) {
-      setLoginForm((current) => ({
-        ...current,
-        email,
-        password,
-        remember: true,
-      }));
-
-      setRegisterForm({
-        name: '',
-        email: '',
-        password: '',
-        confirmPassword: '',
-        agree: false,
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+        }),
       });
 
-      switchMode('login');
+      const data = (await response.json()) as AuthResponse;
+
+      alert(data.message);
+
+      if (response.ok) {
+        setLoginForm((current) => ({
+          ...current,
+          email,
+          password,
+          remember: true,
+        }));
+
+        setRegisterForm({
+          name: '',
+          email: '',
+          password: '',
+          confirmPassword: '',
+          agree: false,
+        });
+
+        switchMode('login');
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -195,7 +214,7 @@ function LoginPageContent() {
                 </h1>
 
                 <p className="max-w-md text-sm leading-7 text-slate-300">
-                  登录与注册共用同一套视觉布局。注册成功后会自动回到登录页，并填入刚刚注册的邮箱和密码。
+                  登录成功后由后端写入 HttpOnly Cookie，主页会通过后端确认当前登录用户。
                 </p>
               </div>
             </div>
@@ -209,9 +228,9 @@ function LoginPageContent() {
               </div>
 
               <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-                <p className="font-medium text-white">清晰跳转</p>
+                <p className="font-medium text-white">会话控制</p>
                 <p className="mt-1 leading-6">
-                  `/` 只作为公开索引页；登录成功后进入真正主页 `/home`。
+                  当前登录用户不再从 localStorage 读取，而是由服务端 Session 控制。
                 </p>
               </div>
             </div>
@@ -352,9 +371,10 @@ function LoginPageContent() {
 
                       <button
                         type="submit"
-                        className="w-full rounded-2xl bg-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 transition hover:bg-sky-300 focus:outline-none focus:ring-4 focus:ring-sky-300/20"
+                        disabled={isSubmitting}
+                        className="w-full rounded-2xl bg-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 transition hover:bg-sky-300 focus:outline-none focus:ring-4 focus:ring-sky-300/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        登录
+                        {isSubmitting ? '处理中...' : '登录'}
                       </button>
 
                       <p className="text-center text-sm text-slate-400">
@@ -437,7 +457,7 @@ function LoginPageContent() {
                             }))
                           }
                           className="w-full rounded-2xl border border-white/10 bg-slate-950/60 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/70 focus:ring-4 focus:ring-sky-300/10"
-                          placeholder="至少 8 位密码"
+                          placeholder="至少 6 位密码"
                         />
                       </div>
 
@@ -497,9 +517,10 @@ function LoginPageContent() {
 
                       <button
                         type="submit"
-                        className="w-full rounded-2xl bg-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 transition hover:bg-sky-300 focus:outline-none focus:ring-4 focus:ring-sky-300/20"
+                        disabled={isSubmitting}
+                        className="w-full rounded-2xl bg-sky-400 px-4 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-sky-950/30 transition hover:bg-sky-300 focus:outline-none focus:ring-4 focus:ring-sky-300/20 disabled:cursor-not-allowed disabled:opacity-60"
                       >
-                        创建账户
+                        {isSubmitting ? '处理中...' : '创建账户'}
                       </button>
 
                       <p className="text-center text-sm text-slate-400">

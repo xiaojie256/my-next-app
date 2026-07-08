@@ -1,23 +1,30 @@
-import bcrypt from "bcryptjs";
-import db from "@/lib/db";
+import bcrypt from 'bcryptjs';
+import { NextRequest, NextResponse } from 'next/server';
+
+import {
+  AUTH_SESSION_COOKIE,
+  createSession,
+  getAuthCookieOptions,
+} from '@/lib/auth';
+import db from '@/lib/db';
 
 type LoginRequestBody = {
   email?: string;
   password?: string;
 };
 
-export const runtime = "nodejs";
+export const runtime = 'nodejs';
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   let body: LoginRequestBody;
 
   try {
     body = (await request.json()) as LoginRequestBody;
   } catch {
-    return Response.json(
+    return NextResponse.json(
       {
         success: false,
-        message: "请求格式错误，请发送 JSON 数据",
+        message: '请求格式错误，请发送 JSON 数据',
       },
       {
         status: 400,
@@ -25,14 +32,17 @@ export async function POST(request: Request) {
     );
   }
 
-  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const password = typeof body.password === "string" ? body.password : "";
+  const email =
+    typeof body.email === 'string'
+      ? body.email.trim().toLowerCase()
+      : '';
+  const password = typeof body.password === 'string' ? body.password : '';
 
   if (!email || !password) {
-    return Response.json(
+    return NextResponse.json(
       {
         success: false,
-        message: "邮箱和密码不能为空",
+        message: '邮箱和密码不能为空',
       },
       {
         status: 400,
@@ -48,10 +58,10 @@ export async function POST(request: Request) {
     });
 
     if (!user) {
-      return Response.json(
+      return NextResponse.json(
         {
           success: false,
-          message: "邮箱或密码错误",
+          message: '邮箱或密码错误',
         },
         {
           status: 401,
@@ -62,10 +72,10 @@ export async function POST(request: Request) {
     const isPasswordCorrect = await bcrypt.compare(password, user.password);
 
     if (!isPasswordCorrect) {
-      return Response.json(
+      return NextResponse.json(
         {
           success: false,
-          message: "邮箱或密码错误",
+          message: '邮箱或密码错误',
         },
         {
           status: 401,
@@ -73,22 +83,39 @@ export async function POST(request: Request) {
       );
     }
 
-    return Response.json({
-      success: true,
-      message: "登录成功",
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      },
-    });
-  } catch (error) {
-    console.error("login error:", error);
+    const session = await createSession(user.id);
 
-    return Response.json(
+    const response = NextResponse.json(
+      {
+        success: true,
+        message: '登录成功',
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
+      },
+      {
+        status: 200,
+      },
+    );
+
+    response.headers.set('Cache-Control', 'no-store');
+
+    response.cookies.set({
+      name: AUTH_SESSION_COOKIE,
+      value: session.rawToken,
+      ...getAuthCookieOptions(),
+    });
+
+    return response;
+  } catch (error) {
+    console.error('login error:', error);
+
+    return NextResponse.json(
       {
         success: false,
-        message: "服务器错误，登录失败",
+        message: '服务器错误，登录失败',
       },
       {
         status: 500,

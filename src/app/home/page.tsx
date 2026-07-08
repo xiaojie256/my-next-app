@@ -10,7 +10,11 @@ type AuthUser = {
   email: string;
 };
 
-const AUTH_USER_STORAGE_KEY = 'app-auth-user';
+type MeResponse = {
+  success: boolean;
+  message: string;
+  user?: AuthUser;
+};
 
 const featureCards = [
   {
@@ -31,35 +35,62 @@ export default function HomePage() {
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isCheckingLogin, setIsCheckingLogin] = useState(true);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   useEffect(() => {
-    const rawUser = window.localStorage.getItem(AUTH_USER_STORAGE_KEY);
+    let ignore = false;
 
-    if (!rawUser) {
-      router.replace('/login');
+    const checkLogin = async () => {
+      try {
+        const response = await fetch('/api/auth/me', {
+          method: 'GET',
+          credentials: 'include',
+          cache: 'no-store',
+        });
+
+        const data = (await response.json()) as MeResponse;
+
+        if (ignore) {
+          return;
+        }
+
+        if (!response.ok || !data.user) {
+          router.replace('/login');
+          return;
+        }
+
+        setUser(data.user);
+        setIsCheckingLogin(false);
+      } catch {
+        if (!ignore) {
+          router.replace('/login');
+        }
+      }
+    };
+
+    void checkLogin();
+
+    return () => {
+      ignore = true;
+    };
+  }, [router]);
+
+  const handleLogout = async () => {
+    if (isLoggingOut) {
       return;
     }
 
+    setIsLoggingOut(true);
+
     try {
-      const parsedUser = JSON.parse(rawUser) as AuthUser;
-
-      if (!parsedUser.email) {
-        window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
-        router.replace('/login');
-        return;
-      }
-
-      setUser(parsedUser);
-      setIsCheckingLogin(false);
-    } catch {
-      window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } finally {
       router.replace('/login');
+      router.refresh();
     }
-  }, [router]);
-
-  const handleLogout = () => {
-    window.localStorage.removeItem(AUTH_USER_STORAGE_KEY);
-    router.replace('/login');
   };
 
   if (isCheckingLogin) {
@@ -97,9 +128,10 @@ export default function HomePage() {
             <button
               type="button"
               onClick={handleLogout}
-              className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-sky-100"
+              disabled={isLoggingOut}
+              className="rounded-2xl bg-white px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-sky-100 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              退出登录
+              {isLoggingOut ? '正在退出...' : '退出登录'}
             </button>
           </div>
         </header>
@@ -116,7 +148,10 @@ export default function HomePage() {
 
             <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300">
               这里是登录成功后进入的真正主页。
-              根路径 <span className="rounded-md bg-white/10 px-2 py-1 font-mono text-sky-200">/</span>{' '}
+              根路径{' '}
+              <span className="rounded-md bg-white/10 px-2 py-1 font-mono text-sky-200">
+                /
+              </span>{' '}
               仍然只是公开索引页，不承担登录后主页的职责。
             </p>
 
@@ -164,8 +199,8 @@ export default function HomePage() {
             </div>
 
             <p className="mt-5 text-xs leading-6 text-slate-500">
-              注意：当前只是阶段性登录状态保存。后续如果要做正式鉴权，建议改成后端签发
-              HttpOnly Cookie 或 Session。
+              当前主页已经不再读取 localStorage。页面展示的用户来自后端 Session，
+              退出登录会同时清除服务端会话和浏览器 Cookie。
             </p>
           </aside>
         </section>
