@@ -1,3 +1,8 @@
+import { compare } from 'bcryptjs';
+import { prisma } from '@/lib/db';
+
+export const runtime = 'nodejs';
+
 type LoginRequestBody = {
   email?: string;
   password?: string;
@@ -20,7 +25,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const email = typeof body.email === 'string' ? body.email.trim() : '';
+  const email =
+    typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   const password = typeof body.password === 'string' ? body.password : '';
 
   if (!email || !password) {
@@ -35,26 +41,47 @@ export async function POST(request: Request) {
     );
   }
 
-  // 这里先写假逻辑，后面再换成数据库查询
-  if (email === 'test@example.com' && password === '123456') {
-    return Response.json({
-      success: true,
-      message: '登录成功',
-      user: {
-        id: 1,
-        email,
-        name: '测试用户',
+  const user = await prisma.user.findUnique({
+    where: {
+      email,
+    },
+  });
+
+  if (!user) {
+    return Response.json(
+      {
+        success: false,
+        message: '邮箱或密码错误',
       },
-    });
+      {
+        status: 401,
+      },
+    );
   }
 
-  return Response.json(
-    {
-      success: false,
-      message: '邮箱或密码错误',
+  const isPasswordCorrect = await compare(password, user.password);
+
+  if (!isPasswordCorrect) {
+    return Response.json(
+      {
+        success: false,
+        message: '邮箱或密码错误',
+      },
+      {
+        status: 401,
+      },
+    );
+  }
+
+  return Response.json({
+    success: true,
+    message: '登录成功',
+    user: {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     },
-    {
-      status: 401,
-    },
-  );
+  });
 }

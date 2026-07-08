@@ -1,29 +1,35 @@
+import { hash } from 'bcryptjs';
+import { prisma } from '@/lib/db';
+
+export const runtime = 'nodejs';
+
 type RegisterRequestBody = {
-    name?: string;
-    password?: string;
-    email?: string;
-}
+  name?: string;
+  email?: string;
+  password?: string;
+};
 
 export async function POST(request: Request) {
-    let body: RegisterRequestBody;
+  let body: RegisterRequestBody;
 
-    try {
-        body = (await request.json()) as RegisterRequestBody;
-    } catch {
-        return Response.json(
-            {
-                success: false,
-                message: '请求格式错误，请发送正确的 JSON 数据',
-            },
-            {
-                status: 400,
-            },
-        );
-    }
+  try {
+    body = (await request.json()) as RegisterRequestBody;
+  } catch {
+    return Response.json(
+      {
+        success: false,
+        message: '请求格式错误，请发送正确的 JSON 数据',
+      },
+      {
+        status: 400,
+      },
+    );
+  }
 
-  const name = body.name;
-  const email = body.email;
-  const password = body.password;
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+  const email =
+    typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+  const password = typeof body.password === 'string' ? body.password : '';
 
   if (!name || !email || !password) {
     return Response.json(
@@ -37,11 +43,11 @@ export async function POST(request: Request) {
     );
   }
 
-  if (password.length < 6) {
+  if (password.length < 8) {
     return Response.json(
       {
         success: false,
-        message: '密码至少需要 6 位',
+        message: '密码至少需要 8 位',
       },
       {
         status: 400,
@@ -49,14 +55,49 @@ export async function POST(request: Request) {
     );
   }
 
-  // 这里先写假逻辑，后面再换成数据库创建用户
-  return Response.json({
-    success: true,
-    message: '注册成功',
-    user: {
-      id: Date.now(),
-      name,
+  const existedUser = await prisma.user.findUnique({
+    where: {
       email,
     },
   });
+
+  if (existedUser) {
+    return Response.json(
+      {
+        success: false,
+        message: '该邮箱已经被注册',
+      },
+      {
+        status: 409,
+      },
+    );
+  }
+
+  const hashedPassword = await hash(password, 10);
+
+  const user = await prisma.user.create({
+    data: {
+      name,
+      email,
+      password: hashedPassword,
+    },
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  return Response.json(
+    {
+      success: true,
+      message: '注册成功',
+      user,
+    },
+    {
+      status: 201,
+    },
+  );
 }
