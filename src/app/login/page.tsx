@@ -6,6 +6,16 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 type AuthMode = 'login' | 'register';
 
+type AuthResponse = {
+  success: boolean;
+  message: string;
+  user?: {
+    id: number;
+    name: string | null;
+    email: string;
+  };
+};
+
 function getMode(value: string | null): AuthMode {
   return value === 'register' ? 'register' : 'login';
 }
@@ -45,24 +55,41 @@ export default function LoginPage() {
     }
 
     const query = nextParams.toString();
+
     router.replace(query ? `${pathname}?${query}` : pathname, {
       scroll: false,
     });
   };
 
-  const handleLogin = (event: FormEvent<HTMLFormElement>) => {
+  const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
 
     if (!loginForm.email.trim() || !loginForm.password) {
+      alert('邮箱和密码不能为空');
       return;
     }
 
-    // TODO: 在这里接入你的登录接口
-    // await signIn(loginForm.email, loginForm.password)
-    console.log('login:', loginForm);
+    const response = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: loginForm.email,
+        password: loginForm.password,
+      }),
+    });
+
+    const data = (await response.json()) as AuthResponse;
+
+    alert(data.message);
+
+    if (response.ok) {
+      router.push('/');
+    }
   };
 
-  const handleRegister = (event: FormEvent<HTMLFormElement>) => {
+  const handleRegister = async (event: FormEvent) => {
     event.preventDefault();
 
     if (
@@ -71,20 +98,39 @@ export default function LoginPage() {
       !registerForm.password ||
       !registerForm.confirmPassword
     ) {
+      alert('请完整填写注册信息');
       return;
     }
 
     if (registerForm.password !== registerForm.confirmPassword) {
+      alert('两次输入的密码不一致');
       return;
     }
 
     if (!registerForm.agree) {
+      alert('请先同意服务条款和隐私政策');
       return;
     }
 
-    // TODO: 在这里接入你的注册接口
-    // await signUp(registerForm)
-    console.log('register:', registerForm);
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: registerForm.name,
+        email: registerForm.email,
+        password: registerForm.password,
+      }),
+    });
+
+    const data = (await response.json()) as AuthResponse;
+
+    alert(data.message);
+
+    if (response.ok) {
+      switchMode('login');
+    }
   };
 
   return (
