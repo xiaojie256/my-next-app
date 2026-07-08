@@ -1,54 +1,84 @@
+import Link from 'next/link';
+
 const links = [
   {
-    title: "登录页面",
-    description: "打开项目登录入口",
-    href: "/login",
+    title: '登录页面',
+    description: '已有账户时，从这里登录并进入真正主页。',
+    href: '/login',
+    tag: '登录',
+  },
+  {
+    title: '注册页面',
+    description: '创建新账户。注册成功后会自动回到登录页并填入邮箱、密码。',
+    href: '/login?mode=register',
+    tag: '注册',
+  },
+  {
+    title: '应用主页',
+    description: '登录成功后进入的真正主页。当前阶段使用浏览器本地登录状态判断。',
+    href: '/home',
+    tag: '主页',
   },
 ];
 
-export default function Home() {
+export default function IndexPage() {
   return (
     <main className="min-h-screen bg-slate-950 px-6 py-10 text-slate-100">
-      <section className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-4xl flex-col justify-center">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] w-full max-w-5xl flex-col justify-center">
         <div className="mb-10">
-          <p className="mb-3 text-sm font-medium tracking-[0.28em] text-slate-400">
-            QUICK LINKS
+          <p className="text-sm font-medium uppercase tracking-[0.28em] text-sky-300">
+            Public Index
           </p>
-          <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
+
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
             页面索引
           </h1>
-          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">
-            用于快速打开项目中的页面。点击按钮后会以新标签页形式跳转。
+
+          <p className="mt-5 max-w-2xl text-sm leading-7 text-slate-300">
+            当前页面是公开入口，只负责整理项目中的可访问页面。
+            它不是登录后的真正主页，真正主页放在
+            <span className="mx-1 rounded-md bg-white/10 px-2 py-1 font-mono text-sky-200">
+              /home
+            </span>
+            。
           </p>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           {links.map((link) => (
-            <a
+            <Link
               key={link.href}
               href={link.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="group rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:bg-white/[0.08] focus:outline-none focus:ring-2 focus:ring-white/30"
+              className="group rounded-3xl border border-white/10 bg-white/[0.04] p-6 shadow-2xl shadow-slate-950/30 transition hover:-translate-y-1 hover:border-sky-300/40 hover:bg-white/[0.07]"
             >
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-white">
-                    {link.title}
-                  </h2>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">
-                    {link.description}
-                  </p>
-                </div>
+              <span className="inline-flex rounded-full border border-sky-300/30 bg-sky-300/10 px-3 py-1 text-xs font-medium text-sky-200">
+                {link.tag}
+              </span>
 
-                <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-300 transition group-hover:border-white/30 group-hover:text-white">
-                  打开
-                </span>
-              </div>
-            </a>
+              <h2 className="mt-5 text-xl font-semibold text-white">
+                {link.title}
+              </h2>
+
+              <p className="mt-3 min-h-16 text-sm leading-6 text-slate-300">
+                {link.description}
+              </p>
+
+              <span className="mt-6 inline-flex text-sm font-medium text-sky-300 transition group-hover:text-sky-200">
+                打开 {link.href}
+              </span>
+            </Link>
           ))}
         </div>
-      </section>
+
+        <div className="mt-8 rounded-3xl border border-white/10 bg-white/[0.04] p-5 text-sm leading-7 text-slate-300">
+          <p className="font-medium text-white">当前阶段说明</p>
+          <p className="mt-2">
+            注册和登录已经通过后端 API 连接数据库。因为项目还没有接入正式
+            Cookie / Session / JWT 认证，所以登录成功后的用户信息暂时保存在浏览器
+            localStorage 中，用于进入当前阶段的主页。
+          </p>
+        </div>
+      </div>
     </main>
   );
 }

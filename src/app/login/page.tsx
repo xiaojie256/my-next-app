@@ -1,7 +1,12 @@
 'use client';
 
-import { FormEvent, useMemo, useState } from 'react';
 import Link from 'next/link';
+import {
+  FormEvent,
+  Suspense,
+  useMemo,
+  useState,
+} from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 type AuthMode = 'login' | 'register';
@@ -16,11 +21,13 @@ type AuthResponse = {
   };
 };
 
+const AUTH_USER_STORAGE_KEY = 'app-auth-user';
+
 function getMode(value: string | null): AuthMode {
   return value === 'register' ? 'register' : 'login';
 }
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -64,7 +71,10 @@ export default function LoginPage() {
   const handleLogin = async (event: FormEvent) => {
     event.preventDefault();
 
-    if (!loginForm.email.trim() || !loginForm.password) {
+    const email = loginForm.email.trim().toLowerCase();
+    const password = loginForm.password;
+
+    if (!email || !password) {
       alert('邮箱和密码不能为空');
       return;
     }
@@ -75,8 +85,8 @@ export default function LoginPage() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        email: loginForm.email,
-        password: loginForm.password,
+        email,
+        password,
       }),
     });
 
@@ -84,25 +94,34 @@ export default function LoginPage() {
 
     alert(data.message);
 
-    if (response.ok) {
-      router.push('/');
+    if (response.ok && data.user) {
+      window.localStorage.setItem(
+        AUTH_USER_STORAGE_KEY,
+        JSON.stringify(data.user),
+      );
+
+      router.push('/home');
     }
   };
 
   const handleRegister = async (event: FormEvent) => {
     event.preventDefault();
 
+    const name = registerForm.name.trim();
+    const email = registerForm.email.trim().toLowerCase();
+    const password = registerForm.password;
+
     if (
-      !registerForm.name.trim() ||
-      !registerForm.email.trim() ||
-      !registerForm.password ||
+      !name ||
+      !email ||
+      !password ||
       !registerForm.confirmPassword
     ) {
       alert('请完整填写注册信息');
       return;
     }
 
-    if (registerForm.password !== registerForm.confirmPassword) {
+    if (password !== registerForm.confirmPassword) {
       alert('两次输入的密码不一致');
       return;
     }
@@ -118,9 +137,9 @@ export default function LoginPage() {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        name: registerForm.name,
-        email: registerForm.email,
-        password: registerForm.password,
+        name,
+        email,
+        password,
       }),
     });
 
@@ -129,6 +148,21 @@ export default function LoginPage() {
     alert(data.message);
 
     if (response.ok) {
+      setLoginForm((current) => ({
+        ...current,
+        email,
+        password,
+        remember: true,
+      }));
+
+      setRegisterForm({
+        name: '',
+        email: '',
+        password: '',
+        confirmPassword: '',
+        agree: false,
+      });
+
       switchMode('login');
     }
   };
@@ -139,11 +173,11 @@ export default function LoginPage() {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.25),transparent_32rem),radial-gradient(circle_at_bottom_right,rgba(14,165,233,0.18),transparent_28rem)]" />
         <div className="absolute inset-x-0 top-0 -z-10 h-px bg-gradient-to-r from-transparent via-sky-300/40 to-transparent" />
 
-        <section className="grid w-full max-w-5xl overflow-hidden rounded-3xl border border-white/10 bg-white/[0.06] shadow-2xl shadow-slate-950/50 backdrop-blur-xl md:grid-cols-[1fr_1.05fr]">
-          <div className="hidden flex-col justify-between border-r border-white/10 bg-white/[0.04] p-10 md:flex">
+        <section className="grid w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/10 bg-white/[0.04] shadow-2xl shadow-slate-950/70 backdrop-blur xl:grid-cols-[1fr_1.05fr]">
+          <div className="hidden min-h-[680px] border-r border-white/10 p-10 xl:flex xl:flex-col xl:justify-between">
             <div>
               <Link href="/" className="inline-flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-400 text-lg font-bold text-slate-950">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-400 text-lg font-bold text-slate-950">
                   A
                 </span>
                 <span className="text-lg font-semibold tracking-tight">
@@ -155,26 +189,29 @@ export default function LoginPage() {
                 <p className="text-sm font-medium uppercase tracking-[0.28em] text-sky-200/80">
                   Welcome back
                 </p>
+
                 <h1 className="max-w-sm text-4xl font-semibold leading-tight tracking-tight text-white">
                   用一个干净、稳定的入口管理你的账户
                 </h1>
+
                 <p className="max-w-md text-sm leading-7 text-slate-300">
-                  登录与注册共用同一套视觉布局，切换时不刷新页面，表单状态互不干扰，体验更顺滑。
+                  登录与注册共用同一套视觉布局。注册成功后会自动回到登录页，并填入刚刚注册的邮箱和密码。
                 </p>
               </div>
             </div>
 
             <div className="grid gap-3 text-sm text-slate-300">
               <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-                <p className="font-medium text-white">安全清晰</p>
+                <p className="font-medium text-white">真实数据库</p>
                 <p className="mt-1 leading-6">
-                  登录、注册状态由 URL 参数控制，刷新后仍能保持正确页面。
+                  注册和登录请求都会进入后端 API，由数据库完成用户读取与写入。
                 </p>
               </div>
+
               <div className="rounded-2xl border border-white/10 bg-white/[0.05] p-4">
-                <p className="font-medium text-white">平滑切换</p>
+                <p className="font-medium text-white">清晰跳转</p>
                 <p className="mt-1 leading-6">
-                  不依赖复杂动画库，减少切换异常和 hydration 问题。
+                  `/` 只作为公开索引页；登录成功后进入真正主页 `/home`。
                 </p>
               </div>
             </div>
@@ -182,7 +219,7 @@ export default function LoginPage() {
 
           <div className="p-6 sm:p-8 md:p-10">
             <div className="mx-auto w-full max-w-md">
-              <div className="mb-8 md:hidden">
+              <div className="mb-8 xl:hidden">
                 <Link href="/" className="inline-flex items-center gap-3">
                   <span className="flex h-10 w-10 items-center justify-center rounded-2xl bg-sky-400 text-lg font-bold text-slate-950">
                     A
@@ -207,6 +244,7 @@ export default function LoginPage() {
                   >
                     登录
                   </button>
+
                   <button
                     type="button"
                     onClick={() => switchMode('register')}
@@ -224,10 +262,11 @@ export default function LoginPage() {
                 <h2 className="text-3xl font-semibold tracking-tight text-white">
                   {isRegister ? '创建新账户' : '欢迎回来'}
                 </h2>
+
                 <p className="mt-3 text-sm leading-6 text-slate-300">
                   {isRegister
-                    ? '填写下面的信息，开始使用你的账户。'
-                    : '请输入你的邮箱和密码继续访问。'}
+                    ? '填写下面的信息，注册成功后会自动回到登录页。'
+                    : '请输入你的邮箱和密码继续访问主页。'}
                 </p>
               </div>
 
@@ -271,13 +310,15 @@ export default function LoginPage() {
                           >
                             密码
                           </label>
+
                           <Link
                             href="/forgot-password"
-                            className="text-sm text-sky-300 transition hover:text-sky-200"
+                            className="text-xs font-medium text-sky-300 transition hover:text-sky-200"
                           >
                             忘记密码？
                           </Link>
                         </div>
+
                         <input
                           id="login-password"
                           type="password"
@@ -435,6 +476,7 @@ export default function LoginPage() {
                           }
                           className="mt-1 h-4 w-4 rounded border-white/20 bg-slate-950 text-sky-400 focus:ring-sky-300"
                         />
+
                         <span>
                           我已阅读并同意{' '}
                           <Link
@@ -479,5 +521,13 @@ export default function LoginPage() {
         </section>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginPageContent />
+    </Suspense>
   );
 }
